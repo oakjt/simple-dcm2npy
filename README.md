@@ -1,4 +1,4 @@
-This is a short Jupyter notebook which reads DCM files and extracts CT image data into a npy file.
+This is a short Jupyter notebook which reads dcm files and extracts CT image data into a npy file.
 
 To use it set the INPUT_ROOT_DIR to the root directory containing all of the scan directories (e.g. LUNG1-001_20180209_CT). Each scan directory should contain dcm files relevant to that scan.
 
