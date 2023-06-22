@@ -34,16 +34,24 @@ for cur_dir in dirs:
     # Take only .dcm files
     files = filter(lambda f: f.split(".")[1] == "dcm", files)
     # Sort by file number
-    dicoms = sorted(files)
+    dicoms = sorted(files, key=lambda f: int(f.split(".")[0]))
 
     np_list = []
-    for dicom in dicoms:
-        dicom = pydicom.read_file(f"{cur_dir_full}/" + dicom)
-        # Check whether the file contains image data we're interested in
-        repval = dicom[(0x0008, 0x0016)].repval
-        if repval == "CT Image Storage" or repval == "MR Image Storage":
-            np_pixel_array = dicom.pixel_array
-            np_list.append(np_pixel_array)
+    details = []
+    for dicom_filename in dicoms:
+        with pydicom.dcmread(f"{cur_dir_full}/{dicom_filename}") as dcm:
+            # Check whether the file contains image data we're interested in
+            repval = dcm["SOPClassUID"].repval
+            if repval in ["CT Image Storage", "MR Image Storage"]:
+                if not details:
+                    details = dcm["SliceThickness"], dcm["WindowCenter"], dcm["WindowWidth"]
+                pix = dcm.pixel_array
+                # Convert to Hounsfield units
+                pix = pydicom.pixel_data_handlers.util.apply_modality_lut(pix, dcm)
+                # np.can_cast() is very slow, manually check casting options
+                if np.max(pix) <= np.iinfo("int16").max and np.min(pix) >= np.iinfo("int16").min:
+                    pix = np.array(pix, dtype="int16")
+                np_list.append(pix)
 
     # Write as NumPy array
     if np_list:
@@ -51,3 +59,5 @@ for cur_dir in dirs:
         os.makedirs(output_dir, exist_ok=True)
         np.save(f"{output_dir}/{cur_dir}.npy", npy)
         print(f"Written {cur_dir}.npy")
+        if details:
+            print(f"Additional details from last slice: {details=}")
